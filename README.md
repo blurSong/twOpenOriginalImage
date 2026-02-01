@@ -11,6 +11,8 @@ This fork adds the following features:
 - **Custom Save Paths**: Configure wallpaper and phone wallpaper save paths in settings
 - **Hide View Count and Share**: Add option to disable them as they are not often needed.
 
+<br>
+<img src="image.png" width="400">
 
 ## Install
 
