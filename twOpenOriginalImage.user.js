@@ -4959,88 +4959,106 @@ function initialize( user_options ) {
         var target_elements = [];
 
         if ( is_react_page() ) {
-            // React版Twitter/X - 隐藏浏览量按钮
-            // 查找包含浏览量的元素
+            // React版Twitter/X
+            // Twitter的推文底部按钮通常在 div[role="group"] 中，使用flex布局
+
+            // 策略1: 直接隐藏浏览量链接（通过 /analytics 路径）
             var analytics_links = node.querySelectorAll( 'a[href*="/analytics"], a[role="link"][href*="/analytics"]' );
             analytics_links.forEach( function( link ) {
-                if ( link.style ) {
-                    link.style.display = 'none';
-                    target_elements.push( link );
+                // 找到包含这个链接的最外层容器（通常是和其他按钮同级的div）
+                var container = link;
+                var max_depth = 6;
+                var depth = 0;
+
+                // 向上查找，直到找到role="group"的父元素或其直接子元素
+                while ( container && depth < max_depth ) {
+                    var parent = container.parentElement;
+                    if ( parent && parent.getAttribute( 'role' ) === 'group' ) {
+                        // 找到了group，隐藏container（group的直接子元素）
+                        container.style.display = 'none';
+                        target_elements.push( container );
+                        break;
+                    }
+                    container = parent;
+                    depth++;
                 }
             } );
 
-            // 隐藏分享按钮
+            // 策略2: 隐藏分享按钮（通过 data-testid="share"）
             var share_buttons = node.querySelectorAll( 'button[data-testid="share"], div[data-testid="share"]' );
             share_buttons.forEach( function( button ) {
-                if ( button.style ) {
-                    button.style.display = 'none';
-                    target_elements.push( button );
-                }
-            } );
+                // 找到按钮的容器（与其他按钮同级的div）
+                var container = button;
+                var max_depth = 6;
+                var depth = 0;
 
-            // 通过aria-label查找分享按钮
-            var aria_share_buttons = node.querySelectorAll( 'button[aria-label], div[aria-label]' );
-            aria_share_buttons.forEach( function( button ) {
-                var aria_label = button.getAttribute( 'aria-label' ) || '';
-                if ( aria_label.includes( '分享' ) ||
-                     aria_label.includes( 'Share' ) ||
-                     aria_label.includes( '共有' ) ||
-                     aria_label.toLowerCase().includes( 'share' ) ) {
-                    if ( button.style ) {
-                        button.style.display = 'none';
-                        target_elements.push( button );
+                while ( container && depth < max_depth ) {
+                    var parent = container.parentElement;
+                    if ( parent && parent.getAttribute( 'role' ) === 'group' ) {
+                        container.style.display = 'none';
+                        target_elements.push( container );
+                        break;
                     }
+                    container = parent;
+                    depth++;
                 }
             } );
 
-            // 查找包含浏览量文本的元素
-            var text_elements = node.querySelectorAll( 'span, a, div' );
-            text_elements.forEach( function( element ) {
-                var text = element.textContent || '';
-                // 匹配各种语言的浏览量文本
-                if ( text.match( /\d+(?:\.\d+)?(?:[KMB万千万億])?(?:\s*(?:次查看|次檢視|views?|回視聴|조회|回再生))/i ) ) {
-                    // 查找最近的可点击父元素
-                    var clickable_parent = element;
-                    var max_depth = 5;
+            // 策略3: 通过aria-label查找分享按钮
+            var all_buttons = node.querySelectorAll( 'button[aria-label]' );
+            all_buttons.forEach( function( button ) {
+                var aria_label = button.getAttribute( 'aria-label' ) || '';
+                var is_share = aria_label.includes( '分享' ) ||
+                               aria_label.includes( 'Share' ) ||
+                               aria_label.includes( '共有' ) ||
+                               aria_label.toLowerCase().includes( 'share post' ) ||
+                               aria_label.toLowerCase().includes( 'share this' );
+
+                if ( is_share ) {
+                    var container = button;
+                    var max_depth = 6;
                     var depth = 0;
 
-                    while ( clickable_parent && depth < max_depth ) {
-                        if ( clickable_parent.tagName === 'A' ||
-                             clickable_parent.tagName === 'BUTTON' ||
-                             clickable_parent.getAttribute( 'role' ) === 'link' ||
-                             clickable_parent.getAttribute( 'role' ) === 'button' ) {
-
-                            if ( clickable_parent.style && clickable_parent !== node ) {
-                                clickable_parent.style.display = 'none';
-                                target_elements.push( clickable_parent );
-                            }
+                    while ( container && depth < max_depth ) {
+                        var parent = container.parentElement;
+                        if ( parent && parent.getAttribute( 'role' ) === 'group' ) {
+                            container.style.display = 'none';
+                            target_elements.push( container );
                             break;
                         }
-                        clickable_parent = clickable_parent.parentNode;
+                        container = parent;
                         depth++;
                     }
                 }
             } );
 
-            // 查找包含分享图标的按钮（通过SVG路径）
-            var share_svg_buttons = node.querySelectorAll( 'button svg' );
-            share_svg_buttons.forEach( function( svg ) {
-                var paths = svg.querySelectorAll( 'path' );
-                var is_share_icon = false;
-
-                paths.forEach( function( path ) {
-                    var d = path.getAttribute( 'd' ) || '';
-                    // Twitter的分享图标SVG路径特征
-                    if ( d.includes( 'M18' ) && d.includes( 'M12' ) && d.includes( '6' ) ) {
-                        is_share_icon = true;
+            // 策略4: 通过文本内容匹配浏览量
+            // 只处理在role="group"容器内的元素
+            var groups = node.querySelectorAll( 'div[role="group"]' );
+            groups.forEach( function( group ) {
+                var children = Array.from( group.children );
+                children.forEach( function( child ) {
+                    var text = child.textContent || '';
+                    // 匹配浏览量文本（更精确的正则）
+                    if ( text.match( /^\s*\d+(?:\.\d+)?(?:[KMB万千億])?(?:\s*(?:次查看|次檢視|views?|回視聴|조회|回再生))\s*$/i ) ) {
+                        child.style.display = 'none';
+                        target_elements.push( child );
                     }
                 } );
+            } );
 
-                if ( is_share_icon ) {
-                    var button = svg.closest( 'button' );
-                    if ( button && button.style ) {
-                        button.style.display = 'none';
-                        target_elements.push( button );
+            // 策略5: 调整父容器的flex布局，确保剩余按钮均匀分布
+            // 为所有包含按钮的group添加CSS以改善间距
+            var button_groups = node.querySelectorAll( 'div[role="group"]' );
+            button_groups.forEach( function( group ) {
+                // 检查这个group是否包含推文交互按钮（回复、转推、喜欢、书签等）
+                var has_interaction_buttons = group.querySelector( 'button[data-testid="reply"], button[data-testid="retweet"], button[data-testid="like"], button[data-testid="bookmark"]' );
+
+                if ( has_interaction_buttons ) {
+                    // 确保flex布局能够正确分布剩余的按钮
+                    if ( ! group.style.display || group.style.display !== 'none' ) {
+                        group.style.justifyContent = 'space-between';
+                        group.style.width = '100%';
                     }
                 }
             } );

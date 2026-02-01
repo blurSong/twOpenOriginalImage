@@ -132,9 +132,31 @@ For features that hide Twitter UI elements:
   - `aria-label` attributes
   - Text content matching
   - SVG path patterns
+- **Important for proper alignment**: Don't just hide the button itself
+  - Find the button's container (usually a direct child of `div[role="group"]`)
+  - Hide the container instead of the button to maintain flex layout
+  - Traverse up the DOM tree to find `role="group"` parent
+  - Hide the direct child of the group to prevent alignment issues
 - Set `element.style.display = 'none'` to hide
+- **Adjust parent flex layout**: Set `justifyContent: 'space-between'` on button groups
 - Call from `check_tweets()` when `OPTIONS.YOUR_FEATURE` is enabled
 - Ensure it works with React's dynamic rendering via MutationObserver
+
+**Layout Fix Example**:
+```javascript
+// Bad - causes misalignment
+button.style.display = 'none';
+
+// Good - maintains alignment
+var container = button;
+while (container && container.parentElement?.getAttribute('role') !== 'group') {
+    container = container.parentElement;
+}
+container.style.display = 'none'; // Hide the group's direct child
+
+// Also adjust the group's flex properties
+group.style.justifyContent = 'space-between';
+```
 
 ## Important Notes
 
