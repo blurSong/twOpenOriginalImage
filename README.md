@@ -9,7 +9,7 @@ This fork adds the following features:
 - **Keyboard Shortcuts**: Press <kbd>w</kbd> or <kbd>p</kbd> in overlay view to save as wallpaper
 - **Resolution Display**: Shows image dimensions in the overlay status bar
 - **Custom Save Paths**: Configure wallpaper and phone wallpaper save paths in settings
-- **Hide View Count and Share**: Add option to disable them as they are not often needed.
+- **Hide View Count and Share**: Add an option to disable them, as they are not always needed.
 
 <br>
 <img src="image.png" width="400">
