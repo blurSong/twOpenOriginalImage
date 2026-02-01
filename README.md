@@ -1,5 +1,16 @@
 # Twitter View Original Images (twOpenOriginalImage)
 
+## Fork Modifications
+
+This fork adds the following features:
+
+- **Wallpaper Save Buttons**: Added "Save W" and "Save P" buttons on timeline tweets for quick wallpaper saving
+- **Download Button**: New "Download" button to download all images directly (without ZIP)
+- **Keyboard Shortcuts**: Press <kbd>w</kbd> or <kbd>p</kbd> in overlay view to save as wallpaper
+- **Resolution Display**: Shows image dimensions in the overlay status bar
+- **Custom Save Paths**: Configure wallpaper and phone wallpaper save paths in settings
+
+
 ## Install
 
 1. Install [ScriptCat](https://docs.scriptcat.org/en/) **or** [Tampermonkey](https://www.tampermonkey.net/) **or** [Violentmonkey (mv2)](https://violentmonkey.github.io/) (or any other userscript manager)
@@ -36,6 +47,7 @@
 
 ### 0.1.16
 - Final version by furyu.
+
 
 ## License
 [MIT](https://github.com/Coxxs/twOpenOriginalImage/blob/main/twOpenOriginalImage.user.js)

@@ -4,7 +4,7 @@
 // @namespace       http://furyu.hatenablog.com/
 // @author          furyu
 // @license         MIT
-// @version         0.1.21
+// @version         0.1.22
 // @include         http://twitter.com/*
 // @include         https://twitter.com/*
 // @include         https://x.com/*
@@ -141,6 +141,7 @@ var OPTIONS = {
 ,   SUPPRESS_FILENAME_SUFFIX : false // true : ファイル名の接尾辞(-orig等)抑制
 ,   SHOW_IMAGES_OF_QUOTE_TWEET : true // true : 引用ツイート中の画像も対象とする
 ,   SAME_FILENAME_AS_IN_ZIP : true // true : 個別ダウンロード時のファイル名をZIPのものと揃える
+,   HIDE_VIEW_COUNT_AND_SHARE_BUTTONS : false // true : 隐藏推文下方的浏览量显示和分享按钮
 
 ,   DOWNLOAD_WALLPAPER_PATH : '' // 壁纸保存路径
 ,   DOWNLOAD_PHONE_WALLPAPER_PATH : '' // 手机壁纸保存路径
@@ -290,7 +291,7 @@ switch ( LANGUAGE ) {
         OPTIONS.HELP_OVERLAY_SHORTCUT_MOVE_NEXT = '[j]next';
         OPTIONS.HELP_OVERLAY_SHORTCUT_MOVE_PREVIOUS = '[k]previous';
         OPTIONS.HELP_OVERLAY_SHORTCUT_DOWNLOAD = '[d]download';
-        OPTIONS.HELP_OVERLAY_SHORTCUT_DOWNLOAD_ZIP = '[z]ZIP';
+        OPTIONS.HELP_OVERLAY_SHORTCUT_DOWNLOAD_ZIP = '[z]zip';
         OPTIONS.HELP_OVERLAY_SHORTCUT_SIZE = '[s]size:';
         OPTIONS.HELP_OVERLAY_SHORTCUT_SIZE_FULL = 'full';
         OPTIONS.HELP_OVERLAY_SHORTCUT_SIZE_FIT_WIDTH = 'fit-width';
@@ -4950,6 +4951,106 @@ function initialize( user_options ) {
     } )(); // end of add_open_button()
 
 
+    function hide_view_count_and_share_buttons( node ) {
+        if ( ( ! node ) || ( node.nodeType != 1 ) ) {
+            return false;
+        }
+
+        var target_elements = [];
+
+        if ( is_react_page() ) {
+            // React版Twitter/X - 隐藏浏览量按钮
+            // 查找包含浏览量的元素
+            var analytics_links = node.querySelectorAll( 'a[href*="/analytics"], a[role="link"][href*="/analytics"]' );
+            analytics_links.forEach( function( link ) {
+                if ( link.style ) {
+                    link.style.display = 'none';
+                    target_elements.push( link );
+                }
+            } );
+
+            // 隐藏分享按钮
+            var share_buttons = node.querySelectorAll( 'button[data-testid="share"], div[data-testid="share"]' );
+            share_buttons.forEach( function( button ) {
+                if ( button.style ) {
+                    button.style.display = 'none';
+                    target_elements.push( button );
+                }
+            } );
+
+            // 通过aria-label查找分享按钮
+            var aria_share_buttons = node.querySelectorAll( 'button[aria-label], div[aria-label]' );
+            aria_share_buttons.forEach( function( button ) {
+                var aria_label = button.getAttribute( 'aria-label' ) || '';
+                if ( aria_label.includes( '分享' ) ||
+                     aria_label.includes( 'Share' ) ||
+                     aria_label.includes( '共有' ) ||
+                     aria_label.toLowerCase().includes( 'share' ) ) {
+                    if ( button.style ) {
+                        button.style.display = 'none';
+                        target_elements.push( button );
+                    }
+                }
+            } );
+
+            // 查找包含浏览量文本的元素
+            var text_elements = node.querySelectorAll( 'span, a, div' );
+            text_elements.forEach( function( element ) {
+                var text = element.textContent || '';
+                // 匹配各种语言的浏览量文本
+                if ( text.match( /\d+(?:\.\d+)?(?:[KMB万千万億])?(?:\s*(?:次查看|次檢視|views?|回視聴|조회|回再生))/i ) ) {
+                    // 查找最近的可点击父元素
+                    var clickable_parent = element;
+                    var max_depth = 5;
+                    var depth = 0;
+
+                    while ( clickable_parent && depth < max_depth ) {
+                        if ( clickable_parent.tagName === 'A' ||
+                             clickable_parent.tagName === 'BUTTON' ||
+                             clickable_parent.getAttribute( 'role' ) === 'link' ||
+                             clickable_parent.getAttribute( 'role' ) === 'button' ) {
+
+                            if ( clickable_parent.style && clickable_parent !== node ) {
+                                clickable_parent.style.display = 'none';
+                                target_elements.push( clickable_parent );
+                            }
+                            break;
+                        }
+                        clickable_parent = clickable_parent.parentNode;
+                        depth++;
+                    }
+                }
+            } );
+
+            // 查找包含分享图标的按钮（通过SVG路径）
+            var share_svg_buttons = node.querySelectorAll( 'button svg' );
+            share_svg_buttons.forEach( function( svg ) {
+                var paths = svg.querySelectorAll( 'path' );
+                var is_share_icon = false;
+
+                paths.forEach( function( path ) {
+                    var d = path.getAttribute( 'd' ) || '';
+                    // Twitter的分享图标SVG路径特征
+                    if ( d.includes( 'M18' ) && d.includes( 'M12' ) && d.includes( '6' ) ) {
+                        is_share_icon = true;
+                    }
+                } );
+
+                if ( is_share_icon ) {
+                    var button = svg.closest( 'button' );
+                    if ( button && button.style ) {
+                        button.style.display = 'none';
+                        target_elements.push( button );
+                    }
+                }
+            } );
+        }
+
+        log_debug( '*** hidden view count and share buttons:', target_elements.length );
+        return target_elements.length > 0;
+    } // end of hide_view_count_and_share_buttons()
+
+
     function check_tweets( node ) {
         if ( ( ! node ) || ( node.nodeType != 1 ) ) {
             return false;
@@ -5002,6 +5103,11 @@ function initialize( user_options ) {
             } );
 
             log_debug( '*** added button number: ', tweet_list.length );
+
+            // 隐藏浏览量和分享按钮
+            if ( OPTIONS.HIDE_VIEW_COUNT_AND_SHARE_BUTTONS ) {
+                hide_view_count_and_share_buttons( node );
+            }
         }
         else {
             tweet_list = to_array( node.querySelectorAll( 'div.js-stream-tweet, div.tweet, div.js-tweet' ) );
@@ -5643,6 +5749,11 @@ function initialize( user_options ) {
         if ( is_valid_url() ) {
             update_display_mode();
             check_tweets( d.body );
+
+            // 初始隐藏浏览量和分享按钮
+            if ( OPTIONS.HIDE_VIEW_COUNT_AND_SHARE_BUTTONS ) {
+                hide_view_count_and_share_buttons( d.body );
+            }
         }
 
         // キー入力の監視開始
@@ -5752,6 +5863,7 @@ async function init_gm_menu() {
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "ダウンロードボタンを自動的に隠す(オーバーレイ時)",
                 "SUPPRESS_FILENAME_SUFFIX": "ファイル名の接尾辞(-orig等)抑制",
                 "SAME_FILENAME_AS_IN_ZIP": "個別ダウンロード時のファイル名をZIP中のものと揃える",
+                "HIDE_VIEW_COUNT_AND_SHARE_BUTTONS": "浏览量显示和分享按钮を隠す",
                 "DOWNLOAD_WALLPAPER_PATH": "壁紙保存先フォルダ(相対パス、例: Wallpaper)",
                 "DOWNLOAD_PHONE_WALLPAPER_PATH": "携帯壁紙保存先フォルダ(相対パス、例: PhoneWallpaper)",
                 "TAB_SORTING": "タブ並び替え",
@@ -5803,6 +5915,7 @@ async function init_gm_menu() {
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "Hide download button automatically (on Overlay mode)",
                 "SUPPRESS_FILENAME_SUFFIX": "Suppress suffix (e.g. -orig) of filename",
                 "SAME_FILENAME_AS_IN_ZIP": "Use same filename as in ZIP file when downloading alone",
+                "HIDE_VIEW_COUNT_AND_SHARE_BUTTONS": "Hide view count and share buttons",
                 "DOWNLOAD_WALLPAPER_PATH": "Wallpaper folder (relative path, e.g., Wallpaper)",
                 "DOWNLOAD_PHONE_WALLPAPER_PATH": "Phone wallpaper folder (relative path, e.g., PhoneWallpaper)",
                 "TAB_SORTING": "Tab sorting",
@@ -5910,6 +6023,12 @@ async function init_gm_menu() {
                 label : messages.SAME_FILENAME_AS_IN_ZIP,
                 type : 'checkbox',
                 default : OPTIONS.SAME_FILENAME_AS_IN_ZIP,
+            },
+
+            HIDE_VIEW_COUNT_AND_SHARE_BUTTONS : {
+                label : messages.HIDE_VIEW_COUNT_AND_SHARE_BUTTONS,
+                type : 'checkbox',
+                default : OPTIONS.HIDE_VIEW_COUNT_AND_SHARE_BUTTONS,
             },
 
             SUPPRESS_FILENAME_SUFFIX : {
