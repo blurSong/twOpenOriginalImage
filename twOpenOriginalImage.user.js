@@ -271,6 +271,8 @@ switch ( LANGUAGE ) {
         OPTIONS.BUTTON_SAVE_PHONE_WALLPAPER_TEXT = 'Save P';
         OPTIONS.BUTTON_HELP_SAVE_WALLPAPER = '壁紙として保存';
         OPTIONS.BUTTON_HELP_SAVE_PHONE_WALLPAPER = '携帯壁紙として保存';
+        OPTIONS.BUTTON_DOWNLOAD_TEXT = 'Download';
+        OPTIONS.BUTTON_HELP_DOWNLOAD = '全ての画像をダウンロード';
         break;
     default :
         OPTIONS.TITLE_PREFIX = 'IMG: ';
@@ -297,12 +299,14 @@ switch ( LANGUAGE ) {
         OPTIONS.HELP_OVERLAY_SHORTCUT_BGCOLOR = '[b]bgcolor:';
         OPTIONS.HELP_OVERLAY_SHORTCUT_BGCOLOR_BLACK = 'black';
         OPTIONS.HELP_OVERLAY_SHORTCUT_BGCOLOR_WHITE = 'white';
-        OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_WALLPAPER = '[w]wallpaper';
-        OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_PHONE_WALLPAPER = '[p]phone';
+        OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_WALLPAPER = '[w]save-wallpaper';
+        OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_PHONE_WALLPAPER = '[p]save-phone-wallpaper';
         OPTIONS.BUTTON_SAVE_WALLPAPER_TEXT = 'Save W';
         OPTIONS.BUTTON_SAVE_PHONE_WALLPAPER_TEXT = 'Save P';
         OPTIONS.BUTTON_HELP_SAVE_WALLPAPER = 'Save as wallpaper';
         OPTIONS.BUTTON_HELP_SAVE_PHONE_WALLPAPER = 'Save as phone wallpaper';
+        OPTIONS.BUTTON_DOWNLOAD_TEXT = 'Download';
+        OPTIONS.BUTTON_HELP_DOWNLOAD = 'Download all images';
         break;
 }
 
@@ -1466,7 +1470,20 @@ function save_to_wallpaper( img_url, filename, wallpaper_path ) {
         return;
     }
 
-    var full_path = wallpaper_path.replace( /[\/\\]$/, '' ) + '/' + filename;
+    // Note: Due to browser security restrictions, userscripts cannot save files to arbitrary absolute paths.
+    // The wallpaper_path should be a relative path from the browser's download folder (e.g., "Wallpaper" instead of "D:\Wallpaper").
+    // If an absolute path is provided, we'll extract the last folder name to use as a relative path.
+    var relative_path = wallpaper_path;
+
+    // Check if it looks like an absolute path (Windows or Unix style)
+    if ( /^[A-Za-z]:[\\/]/.test( wallpaper_path ) || wallpaper_path.startsWith( '/' ) ) {
+        // Extract the last part of the path to use as relative folder name
+        var path_parts = wallpaper_path.replace( /[\\/]+$/, '' ).split( /[\\/]/ );
+        relative_path = path_parts[ path_parts.length - 1 ] || 'Wallpaper';
+        log_warn( 'save_to_wallpaper: Absolute paths are not supported due to browser security restrictions. Using relative path: ' + relative_path );
+    }
+
+    var full_path = relative_path.replace( /[\/\\]$/, '' ) + '/' + filename;
 
     if ( typeof GM_download == 'function' ) {
         GM_download( {
@@ -1476,12 +1493,12 @@ function save_to_wallpaper( img_url, filename, wallpaper_path ) {
             onerror : function ( error ) {
                 log_error( 'save_to_wallpaper GM_download error:', error );
                 // Fallback to GM_xmlhttpRequest
-                save_to_wallpaper_via_xhr( img_url, full_path );
+                save_to_wallpaper_via_xhr( img_url, filename );
             }
         } );
     }
     else {
-        save_to_wallpaper_via_xhr( img_url, full_path );
+        save_to_wallpaper_via_xhr( img_url, filename );
     }
 } // end of save_to_wallpaper()
 
@@ -2351,6 +2368,23 @@ function initialize( user_options ) {
                 button_container_template.appendChild( button );
                 button_style.position = 'relative';
                 button_style.marginLeft = '4px';
+
+                return button_container_template;
+            } )(),
+
+            // Download button template (download all images to default folder)
+            download_button_template = ( function () {
+                var button_container_template = d.createElement( 'div' ),
+                    button = d.createElement( 'button' ),
+                    button_container_style = button_container_template.style,
+                    button_style = button.style;
+
+                button.className = 'btn download-btn';
+                button.textContent = OPTIONS.BUTTON_DOWNLOAD_TEXT;
+                button.title = OPTIONS.BUTTON_HELP_DOWNLOAD;
+                button_container_template.className = 'ProfileTweet-action ' + SCRIPT_NAME + 'DownloadButton js-tooltip';
+                button_container_template.appendChild( button );
+                button_style.position = 'relative';
 
                 return button_container_template;
             } )(),
@@ -4815,51 +4849,97 @@ function initialize( user_options ) {
 
             insert_button();
 
-            // Add wallpaper buttons if paths are configured
-            if ( OPTIONS.DOWNLOAD_WALLPAPER_PATH || OPTIONS.DOWNLOAD_PHONE_WALLPAPER_PATH ) {
-                var wallpaper_button_container = null,
-                    phone_wallpaper_button_container = null;
+            // Hide the original button (we'll use Download, Save W, Save P instead)
+            button_container.style.display = 'none';
 
-                function save_images_to_wallpaper( wallpaper_path ) {
-                    var filename_prefix = get_filename_prefix( get_tweet_url( tweet ) );
+            // Add Download button (downloads all images to default folder)
+            var download_button_container = download_button_template.cloneNode( true ),
+                download_button = download_button_container.querySelector( 'button' );
 
-                    img_urls.forEach( function ( img_url, index ) {
-                        var img_filename = filename_prefix + '-img' + ( index + 1 ) + '.' + get_img_extension( img_url );
-                        save_to_wallpaper( img_url, img_filename, wallpaper_path );
-                    } );
-                }
+            function download_all_images_to_default() {
+                var filename_prefix = get_filename_prefix( get_tweet_url( tweet ) );
 
-                if ( OPTIONS.DOWNLOAD_WALLPAPER_PATH ) {
-                    wallpaper_button_container = wallpaper_button_template.cloneNode( true );
-                    var wallpaper_button = wallpaper_button_container.querySelector( 'button' );
+                img_urls.forEach( function ( img_url, index ) {
+                    var img_filename = filename_prefix + '-img' + ( index + 1 ) + '.' + get_img_extension( img_url );
 
-                    add_event( wallpaper_button, 'click', function ( event ) {
-                        event.stopPropagation();
-                        event.preventDefault();
-                        save_images_to_wallpaper( OPTIONS.DOWNLOAD_WALLPAPER_PATH );
-                        return false;
-                    } );
-
-                    if ( button_container.parentNode ) {
-                        button_container.parentNode.insertBefore( wallpaper_button_container, button_container.nextSibling );
+                    if ( typeof GM_xmlhttpRequest == 'function' ) {
+                        GM_xmlhttpRequest( {
+                            method : 'GET',
+                            url : img_url,
+                            responseType : 'blob',
+                            onload : function ( response ) {
+                                save_blob( img_filename, response.response );
+                            },
+                            onerror : function ( response ) {
+                                log_error( 'Download failure:', img_url, img_filename, response.status, response.statusText );
+                            }
+                        } );
                     }
-                }
-
-                if ( OPTIONS.DOWNLOAD_PHONE_WALLPAPER_PATH ) {
-                    phone_wallpaper_button_container = phone_wallpaper_button_template.cloneNode( true );
-                    var phone_wallpaper_button = phone_wallpaper_button_container.querySelector( 'button' );
-
-                    add_event( phone_wallpaper_button, 'click', function ( event ) {
-                        event.stopPropagation();
-                        event.preventDefault();
-                        save_images_to_wallpaper( OPTIONS.DOWNLOAD_PHONE_WALLPAPER_PATH );
-                        return false;
-                    } );
-
-                    var insert_after = wallpaper_button_container || button_container;
-                    if ( insert_after.parentNode ) {
-                        insert_after.parentNode.insertBefore( phone_wallpaper_button_container, insert_after.nextSibling );
+                    else {
+                        fetch( img_url )
+                        .then( response => response.blob() )
+                        .then( blob => save_blob( img_filename, blob ) )
+                        .catch( error => {
+                            log_error( 'Download failure:', img_url, img_filename, error );
+                        } );
                     }
+                } );
+            }
+
+            add_event( download_button, 'click', function ( event ) {
+                event.stopPropagation();
+                event.preventDefault();
+                download_all_images_to_default();
+                return false;
+            } );
+
+            if ( button_container.parentNode ) {
+                button_container.parentNode.insertBefore( download_button_container, button_container.nextSibling );
+            }
+
+            // Add wallpaper buttons (Save W, Save P)
+            var wallpaper_button_container = null,
+                phone_wallpaper_button_container = null;
+
+            function save_images_to_wallpaper( wallpaper_path ) {
+                var filename_prefix = get_filename_prefix( get_tweet_url( tweet ) );
+
+                img_urls.forEach( function ( img_url, index ) {
+                    var img_filename = filename_prefix + '-img' + ( index + 1 ) + '.' + get_img_extension( img_url );
+                    save_to_wallpaper( img_url, img_filename, wallpaper_path );
+                } );
+            }
+
+            if ( OPTIONS.DOWNLOAD_WALLPAPER_PATH ) {
+                wallpaper_button_container = wallpaper_button_template.cloneNode( true );
+                var wallpaper_button = wallpaper_button_container.querySelector( 'button' );
+
+                add_event( wallpaper_button, 'click', function ( event ) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    save_images_to_wallpaper( OPTIONS.DOWNLOAD_WALLPAPER_PATH );
+                    return false;
+                } );
+
+                if ( download_button_container.parentNode ) {
+                    download_button_container.parentNode.insertBefore( wallpaper_button_container, download_button_container.nextSibling );
+                }
+            }
+
+            if ( OPTIONS.DOWNLOAD_PHONE_WALLPAPER_PATH ) {
+                phone_wallpaper_button_container = phone_wallpaper_button_template.cloneNode( true );
+                var phone_wallpaper_button = phone_wallpaper_button_container.querySelector( 'button' );
+
+                add_event( phone_wallpaper_button, 'click', function ( event ) {
+                    event.stopPropagation();
+                    event.preventDefault();
+                    save_images_to_wallpaper( OPTIONS.DOWNLOAD_PHONE_WALLPAPER_PATH );
+                    return false;
+                } );
+
+                var insert_after = wallpaper_button_container || download_button_container;
+                if ( insert_after.parentNode ) {
+                    insert_after.parentNode.insertBefore( phone_wallpaper_button_container, insert_after.nextSibling );
                 }
             }
 
@@ -5480,42 +5560,66 @@ function initialize( user_options ) {
 
     function set_user_css() {
         var button_selector = '.' + SCRIPT_NAME + 'Button button.btn',
-            wallpaper_button_selector = '.' + SCRIPT_NAME + 'WallpaperButton button.btn, .' + SCRIPT_NAME + 'PhoneWallpaperButton button.btn',
+            download_button_selector = '.' + SCRIPT_NAME + 'DownloadButton button.btn',
+            wallpaper_button_selector = '.' + SCRIPT_NAME + 'WallpaperButton button.btn',
+            phone_wallpaper_button_selector = '.' + SCRIPT_NAME + 'PhoneWallpaperButton button.btn',
             css_rule_lines = [
+                // Base styles for all buttons
                 button_selector + '{padding:2px 6px; font-weight:normal; min-height:16px; white-space:nowrap;}',
-                wallpaper_button_selector + '{padding:2px 6px; font-weight:normal; min-height:16px; white-space:nowrap; margin-left:4px;}'
+                download_button_selector + '{padding:2px 8px; font-weight:500; min-height:16px; white-space:nowrap; border-radius: 16px; cursor: pointer;}',
+                wallpaper_button_selector + '{padding:2px 8px; font-weight:500; min-height:16px; white-space:nowrap; margin-left:4px; border-radius: 16px; cursor: pointer;}',
+                phone_wallpaper_button_selector + '{padding:2px 8px; font-weight:500; min-height:16px; white-space:nowrap; margin-left:4px; border-radius: 16px; cursor: pointer;}'
             ];
 
+        // Download button: Elegant blue with border only (no fill)
+        // Save W button: Fresh green fill with white text
+        // Save P button: Warm coral/orange fill with white text
+
         if ( is_react_tweetdeck() ) {
-            css_rule_lines.push( button_selector + '{margin: 8px 0 8px 0; padding: 0 8px; border: solid 1px #1da1f2; border-radius: 12px; font-size: 11px; color: #1da1f2; background-color: transparent; cursor: pointer;}' );
-            css_rule_lines.push( wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 8px; border: solid 1px #17bf63; border-radius: 12px; font-size: 11px; color: #17bf63; background-color: transparent; cursor: pointer;}' );
-            css_rule_lines.push( 'html.dark ' + button_selector + ', #open-modal ' + button_selector + '{background: transparent;}' );
-            css_rule_lines.push( 'html.dark ' + button_selector + ':hover, #open-modal ' + button_selector + ':hover{background: #183142;}' );
-            css_rule_lines.push( 'html.dark ' + wallpaper_button_selector + ', #open-modal ' + wallpaper_button_selector + '{background: transparent;}' );
-            css_rule_lines.push( 'html.dark ' + wallpaper_button_selector + ':hover, #open-modal ' + wallpaper_button_selector + ':hover{background: #183142;}' );
+            // Download button - blue outline style
+            css_rule_lines.push( download_button_selector + '{margin: 8px 0 8px 0; padding: 0 10px; border: solid 1.5px #1da1f2; border-radius: 16px; font-size: 12px; color: #1da1f2; background-color: transparent;}' );
+            css_rule_lines.push( download_button_selector + ':hover{background: rgba(29, 161, 242, 0.1);}' );
+            // Save W button - green filled
+            css_rule_lines.push( wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 10px; border: none; border-radius: 16px; font-size: 12px; color: #fff; background-color: #17bf63;}' );
+            css_rule_lines.push( wallpaper_button_selector + ':hover{background-color: #14a857;}' );
+            // Save P button - coral filled
+            css_rule_lines.push( phone_wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 10px; border: none; border-radius: 16px; font-size: 12px; color: #fff; background-color: #f45d22;}' );
+            css_rule_lines.push( phone_wallpaper_button_selector + ':hover{background-color: #d9521e;}' );
+            // Dark mode adjustments
+            css_rule_lines.push( 'html.dark ' + download_button_selector + '{background: transparent; border-color: #1da1f2; color: #1da1f2;}' );
+            css_rule_lines.push( 'html.dark ' + download_button_selector + ':hover{background: rgba(29, 161, 242, 0.15);}' );
         }
         else if ( is_legacy_tweetdeck() ) {
-            css_rule_lines.push( button_selector + '{margin: 8px 0 8px 0; padding: 0 8px; border-radius: 12px; font-size: 11px;}' );
-            css_rule_lines.push( wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 8px; border-radius: 12px; font-size: 11px; border: solid 1px #17bf63; color: #17bf63; cursor: pointer;}' );
-            css_rule_lines.push( 'html.dark ' + button_selector + ', #open-modal ' + button_selector + '{background: transparent;}' );
-            css_rule_lines.push( 'html.dark ' + button_selector + ':hover, #open-modal ' + button_selector + ':hover{background: #183142;}' );
+            css_rule_lines.push( download_button_selector + '{margin: 8px 0 8px 0; padding: 0 10px; border: solid 1.5px #1da1f2; border-radius: 16px; font-size: 12px; color: #1da1f2; background-color: transparent;}' );
+            css_rule_lines.push( wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 10px; border: none; border-radius: 16px; font-size: 12px; color: #fff; background-color: #17bf63;}' );
+            css_rule_lines.push( phone_wallpaper_button_selector + '{margin: 8px 0 8px 4px; padding: 0 10px; border: none; border-radius: 16px; font-size: 12px; color: #fff; background-color: #f45d22;}' );
+            css_rule_lines.push( 'html.dark ' + download_button_selector + '{background: transparent;}' );
+            css_rule_lines.push( 'html.dark ' + download_button_selector + ':hover{background: rgba(29, 161, 242, 0.15);}' );
         }
         else {
             css_rule_lines.push( button_selector + '{font-size: 12px;}' );
+            css_rule_lines.push( download_button_selector + '{font-size: 12px;}' );
             css_rule_lines.push( wallpaper_button_selector + '{font-size: 12px;}' );
-            // TODO: [夜間モード対応] TweetDeck の場合 html.dark で判別がつく一方、Twitter の場合 CSS ファイルそのものを入れ替えている→ CSSルールでの切替困難
+            css_rule_lines.push( phone_wallpaper_button_selector + '{font-size: 12px;}' );
 
             if ( is_react_page() ) {
-                css_rule_lines.push( button_selector + '{background-image: linear-gradient(rgb(255, 255, 255), rgb(245, 248, 250)); background-color: rgb(245, 248, 250); color: rgb(102, 117, 127); cursor: pointer; display: inline-block; position: relative; border-width: 1px; border-style: solid; border-color: rgb(230, 236, 240); border-radius: 4px;}' );
-                css_rule_lines.push( button_selector + ':hover {color: rgb(20, 23, 26); background-color: rgb(230, 236, 240); background-image: linear-gradient(rgb(255, 255, 255), rgb(230, 236, 240)); text-decoration: none; border-color: rgb(230, 236, 240);}' );
-                css_rule_lines.push( 'body[data-nightmode="true"] ' + button_selector + '{background-color: #182430; background-image: none; border: 1px solid #38444d; border-radius: 4px; color: #8899a6; display: inline-block;}' );
-                css_rule_lines.push( 'body[data-nightmode="true"] ' + button_selector + ':hover {color: #fff; text-decoration: none; background-color: #10171e; background-image: none; border-color: #10171e;}' );
+                // Download button - elegant blue outline
+                css_rule_lines.push( download_button_selector + '{background-color: transparent; background-image: none; color: #1da1f2; cursor: pointer; display: inline-block; position: relative; border: 1.5px solid #1da1f2; border-radius: 16px; transition: all 0.2s ease;}' );
+                css_rule_lines.push( download_button_selector + ':hover {background-color: rgba(29, 161, 242, 0.1); text-decoration: none;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + download_button_selector + '{background-color: transparent; border-color: #1da1f2; color: #1da1f2;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + download_button_selector + ':hover {background-color: rgba(29, 161, 242, 0.15);}' );
 
-                // Wallpaper button styles for react page
-                css_rule_lines.push( wallpaper_button_selector + '{background-image: linear-gradient(rgb(255, 255, 255), rgb(245, 248, 250)); background-color: rgb(245, 248, 250); color: #17bf63; cursor: pointer; display: inline-block; position: relative; border-width: 1px; border-style: solid; border-color: #17bf63; border-radius: 4px;}' );
-                css_rule_lines.push( wallpaper_button_selector + ':hover {color: #fff; background-color: #17bf63; background-image: none; text-decoration: none; border-color: #17bf63;}' );
-                css_rule_lines.push( 'body[data-nightmode="true"] ' + wallpaper_button_selector + '{background-color: #182430; background-image: none; border: 1px solid #17bf63; border-radius: 4px; color: #17bf63; display: inline-block;}' );
-                css_rule_lines.push( 'body[data-nightmode="true"] ' + wallpaper_button_selector + ':hover {color: #fff; text-decoration: none; background-color: #17bf63; background-image: none; border-color: #17bf63;}' );
+                // Save W button - fresh green fill
+                css_rule_lines.push( wallpaper_button_selector + '{background-color: #17bf63; background-image: none; color: #fff; cursor: pointer; display: inline-block; position: relative; border: none; border-radius: 16px; transition: all 0.2s ease;}' );
+                css_rule_lines.push( wallpaper_button_selector + ':hover {background-color: #14a857; text-decoration: none;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + wallpaper_button_selector + '{background-color: #17bf63; color: #fff;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + wallpaper_button_selector + ':hover {background-color: #14a857;}' );
+
+                // Save P button - warm coral fill
+                css_rule_lines.push( phone_wallpaper_button_selector + '{background-color: #f45d22; background-image: none; color: #fff; cursor: pointer; display: inline-block; position: relative; border: none; border-radius: 16px; transition: all 0.2s ease;}' );
+                css_rule_lines.push( phone_wallpaper_button_selector + ':hover {background-color: #d9521e; text-decoration: none;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + phone_wallpaper_button_selector + '{background-color: #f45d22; color: #fff;}' );
+                css_rule_lines.push( 'body[data-nightmode="true"] ' + phone_wallpaper_button_selector + ':hover {background-color: #d9521e;}' );
             }
         }
 
@@ -5648,8 +5752,8 @@ async function init_gm_menu() {
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "ダウンロードボタンを自動的に隠す(オーバーレイ時)",
                 "SUPPRESS_FILENAME_SUFFIX": "ファイル名の接尾辞(-orig等)抑制",
                 "SAME_FILENAME_AS_IN_ZIP": "個別ダウンロード時のファイル名をZIP中のものと揃える",
-                "DOWNLOAD_WALLPAPER_PATH": "壁紙保存先フォルダ",
-                "DOWNLOAD_PHONE_WALLPAPER_PATH": "携帯壁紙保存先フォルダ",
+                "DOWNLOAD_WALLPAPER_PATH": "壁紙保存先フォルダ(相対パス、例: Wallpaper)",
+                "DOWNLOAD_PHONE_WALLPAPER_PATH": "携帯壁紙保存先フォルダ(相対パス、例: PhoneWallpaper)",
                 "TAB_SORTING": "タブ並び替え",
                 "TAB_SORTING_ENABLED": "[1][2][3][4]",
                 "DOMATION": "贈り物 🎁 歓迎！",
@@ -5699,8 +5803,8 @@ async function init_gm_menu() {
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "Hide download button automatically (on Overlay mode)",
                 "SUPPRESS_FILENAME_SUFFIX": "Suppress suffix (e.g. -orig) of filename",
                 "SAME_FILENAME_AS_IN_ZIP": "Use same filename as in ZIP file when downloading alone",
-                "DOWNLOAD_WALLPAPER_PATH": "Download as wallpaper to",
-                "DOWNLOAD_PHONE_WALLPAPER_PATH": "Download as phone wallpaper to",
+                "DOWNLOAD_WALLPAPER_PATH": "Wallpaper folder (relative path, e.g., Wallpaper)",
+                "DOWNLOAD_PHONE_WALLPAPER_PATH": "Phone wallpaper folder (relative path, e.g., PhoneWallpaper)",
                 "TAB_SORTING": "Tab sorting",
                 "TAB_SORTING_ENABLED": "[1][2][3][4]",
                 "DOMATION": "Your donation is welcome !",
