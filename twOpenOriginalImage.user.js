@@ -132,7 +132,6 @@ var OPTIONS = {
 ,   ENABLED_ON_TWEETDECK : true // true: TweetDeck 上で有効
 ,   DISPLAY_OVERLAY : true // true: 全ての画像を同一ページで開く際に(別タブで開かず)タイムライン上にオーバーレイする
 ,   OVERRIDE_CLICK_EVENT : true // true: ツイート中の画像クリックで原寸画像を開く
-,   DISPLAY_ORIGINAL_BUTTONS : true // true: [原寸画像]ボタンを表示
 ,   OVERRIDE_GALLERY_FOR_TWEETDECK : true // true: TweetDeck のギャラリー(画像サムネイルクリック時のポップアップ)を置換(OVERRIDE_CLICK_EVENT true 時のみ有効)
 ,   DOWNLOAD_HELPER_SCRIPT_IS_VALID : true // true: ダウンロードヘルパー機能有効
 ,   DOWNLOAD_ZIP_IS_VALID : true // true: ZIPダウンロード有効
@@ -245,7 +244,6 @@ switch ( LANGUAGE ) {
         OPTIONS.TITLE_PREFIX = '画像: ';
         OPTIONS.TWEET_LINK_TEXT = '元ツイート⤴';
         OPTIONS.CLOSE_TEXT = '☒ 閉じる[Esc]';
-        OPTIONS.BUTTON_TEXT = '原寸画像';
         OPTIONS.BUTTON_HELP_DISPLAY_ALL_IN_ONE_PAGE = '全ての画像を同一ページで開く';
         OPTIONS.BUTTON_HELP_DISPLAY_ONE_PER_PAGE = '画像を個別に開く';
         OPTIONS.BUTTON_HELP_DOWNLOAD_IMAGES = '全ての画像を保存';
@@ -279,7 +277,6 @@ switch ( LANGUAGE ) {
         OPTIONS.TITLE_PREFIX = 'IMG: ';
         OPTIONS.TWEET_LINK_TEXT = 'Tweet';
         OPTIONS.CLOSE_TEXT = 'Close [Esc]';
-        OPTIONS.BUTTON_TEXT = 'Original';
         OPTIONS.BUTTON_HELP_DISPLAY_ALL_IN_ONE_PAGE = 'Display all in one page';
         OPTIONS.BUTTON_HELP_DISPLAY_ONE_PER_PAGE = 'Display one image per page';
         OPTIONS.BUTTON_HELP_DOWNLOAD_IMAGES = 'Download all images';
@@ -2308,7 +2305,6 @@ function initialize( user_options ) {
                 }
 
                 button.className = 'btn';
-                button.textContent = escape_html( OPTIONS.BUTTON_TEXT );
                 button_container_template.className = 'ProfileTweet-action ' + button_container_classname + ' js-tooltip';
                 button_container_template.appendChild( button );
 
@@ -4338,16 +4334,6 @@ function initialize( user_options ) {
                     }
                     else {
                         action_list = tweet_container.querySelector( '[role="group"]' );
-                        if ( action_list ) {
-                            if ( OPTIONS.DISPLAY_ORIGINAL_BUTTONS ) {
-                                if ( is_react_tweetdeck() ) {
-                                    action_list.style.flexWrap = 'wrap';
-                                }
-                                else {
-                                    action_list.style.maxWidth = 'initial';
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -4393,9 +4379,8 @@ function initialize( user_options ) {
                 button.title = button_container.getAttribute( 'data-original-title' );
             }
 
-            if ( ! OPTIONS.DISPLAY_ORIGINAL_BUTTONS ) {
-                button_container.style.display = 'none';
-            }
+            // Hide the old button as it has been replaced by new Download buttons
+            button_container.style.display = 'none';
 
             add_event( button, 'click', function ( event ) {
                 event.stopPropagation();
@@ -5870,9 +5855,6 @@ async function init_gm_menu() {
                 "DISPLAY_OVERLAY": "オーバーレイ（タイムラインと同一のタブ上で開く）",
                 "OVERRIDE_CLICK_EVENT": "ツイート上のサムネイル画像クリックで開く",
                 "SWAP_IMAGE_URL": "タイムライン上の画像を原寸画像に置換",
-                "DISPLAY_ORIGINAL_BUTTONS": "画像を開くボタンの表示",
-                "BUTTON_TEXT_HEADER": "画像を開くボタンの文字列",
-                "BUTTON_TEXT": "原寸画像",
                 "DOWNLOAD_HELPER_IS_VALID_HEADER": "画像ダウンロードヘルパー",
                 "ENABLED_ON_TWEETDECK": "TweetDeck での動作",
                 "OVERRIDE_GALLERY_FOR_TWEETDECK": "TweetDeck: ギャラリー機能（画像ポップアップ）を置換",
@@ -5922,9 +5904,6 @@ async function init_gm_menu() {
                 "DISPLAY_OVERLAY": "Overlay",
                 "OVERRIDE_CLICK_EVENT": "Display image on click thumbnail of tweet",
                 "SWAP_IMAGE_URL": "Replace images on timeline with original-sized ones",
-                "DISPLAY_ORIGINAL_BUTTONS": "Display buttons",
-                "BUTTON_TEXT_HEADER": "Button Text",
-                "BUTTON_TEXT": "Original",
                 "DOWNLOAD_HELPER_IS_VALID_HEADER": "Helper to download images",
                 "ENABLED_ON_TWEETDECK": "On TweetDeck",
                 "OVERRIDE_GALLERY_FOR_TWEETDECK": "TweetDeck: Replace image gallery feature",
@@ -5999,18 +5978,6 @@ async function init_gm_menu() {
                 label : messages.SWAP_IMAGE_URL,
                 type : 'checkbox',
                 default : OPTIONS.SWAP_IMAGE_URL,
-            },
-
-            DISPLAY_ORIGINAL_BUTTONS : {
-                label : messages.DISPLAY_ORIGINAL_BUTTONS,
-                type : 'checkbox',
-                default : OPTIONS.DISPLAY_ORIGINAL_BUTTONS,
-            },
-
-            BUTTON_TEXT : {
-                label : messages.BUTTON_TEXT_HEADER,
-                type : 'text',
-                default : OPTIONS.BUTTON_TEXT,
             },
 
             ENABLED_ON_TWEETDECK : {
