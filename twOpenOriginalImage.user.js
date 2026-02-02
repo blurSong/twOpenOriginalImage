@@ -137,6 +137,7 @@ var OPTIONS = {
 ,   DOWNLOAD_ZIP_IS_VALID : true // true: ZIPダウンロード有効
 ,   SWAP_IMAGE_URL : false // true: タイムラインの画像を orig 画像と差し替え
 ,   HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY : true // true: ダウンロードボタンを自動的に隠す(オーバーレイ表示時)
+,   HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY : false // true: オーバーレイ表示時にZIPダウンロードショートカット([z])を隠す
 ,   SUPPRESS_FILENAME_SUFFIX : false // true : ファイル名の接尾辞(-orig等)抑制
 ,   SHOW_IMAGES_OF_QUOTE_TWEET : true // true : 引用ツイート中の画像も対象とする
 ,   SAME_FILENAME_AS_IN_ZIP : true // true : 個別ダウンロード時のファイル名をZIPのものと揃える
@@ -2827,7 +2828,31 @@ function initialize( user_options ) {
                             var img_url = download_link.href,
                                 img_filename = download_link.download || get_img_filename( img_url );
 
+                            // Save to wallpaper path
                             save_to_wallpaper( img_url, img_filename, wallpaper_path );
+
+                            // Also save to default download folder
+                            if ( typeof GM_xmlhttpRequest == 'function' ) {
+                                GM_xmlhttpRequest( {
+                                    method : 'GET',
+                                    url : img_url,
+                                    responseType : 'blob',
+                                    onload : function ( response ) {
+                                        save_blob( img_filename, response.response );
+                                    },
+                                    onerror : function ( response ) {
+                                        log_error( 'Download failure:', img_url, img_filename, response.status, response.statusText );
+                                    }
+                                } );
+                            }
+                            else {
+                                fetch( img_url )
+                                .then( response => response.blob() )
+                                .then( blob => save_blob( img_filename, blob ) )
+                                .catch( error => {
+                                    log_error( 'Download failure:', img_url, img_filename, error );
+                                } );
+                            }
                         } // end of image_overlay_container_save_to_wallpaper()
 
 
@@ -3601,7 +3626,7 @@ function initialize( user_options ) {
                 image_overlay_shortcut_help.appendChild( help_download );
             }
 
-            if ( OPTIONS.DOWNLOAD_HELPER_SCRIPT_IS_VALID && OPTIONS.DOWNLOAD_ZIP_IS_VALID && tweet_url ) {
+            if ( OPTIONS.DOWNLOAD_HELPER_SCRIPT_IS_VALID && OPTIONS.DOWNLOAD_ZIP_IS_VALID && tweet_url && ( ! OPTIONS.HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY ) ) {
                 var help_download_zip = import_node( help_item_template );
 
                 help_download_zip.classList.add( 'help-download-zip' );
@@ -4892,7 +4917,32 @@ function initialize( user_options ) {
 
                 img_urls.forEach( function ( img_url, index ) {
                     var img_filename = filename_prefix + '-img' + ( index + 1 ) + '.' + get_img_extension( img_url );
+
+                    // Save to wallpaper path
                     save_to_wallpaper( img_url, img_filename, wallpaper_path );
+
+                    // Also save to default download folder
+                    if ( typeof GM_xmlhttpRequest == 'function' ) {
+                        GM_xmlhttpRequest( {
+                            method : 'GET',
+                            url : img_url,
+                            responseType : 'blob',
+                            onload : function ( response ) {
+                                save_blob( img_filename, response.response );
+                            },
+                            onerror : function ( response ) {
+                                log_error( 'Download failure:', img_url, img_filename, response.status, response.statusText );
+                            }
+                        } );
+                    }
+                    else {
+                        fetch( img_url )
+                        .then( response => response.blob() )
+                        .then( blob => save_blob( img_filename, blob ) )
+                        .catch( error => {
+                            log_error( 'Download failure:', img_url, img_filename, error );
+                        } );
+                    }
                 } );
             }
 
@@ -5488,7 +5538,13 @@ function initialize( user_options ) {
                 fire_event( image_overlay_container, 'download-image' );
                 break;
             case 90 : // [z]
-                fire_event( image_overlay_container, 'download-image-zip' );
+                if ( OPTIONS.HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY ) {
+                    // When ZIP shortcut is hidden, z key does nothing
+                    is_valid_key = false;
+                }
+                else {
+                    fire_event( image_overlay_container, 'download-image-zip' );
+                }
                 break;
             case 87 : // [w]
                 if ( OPTIONS.DOWNLOAD_WALLPAPER_PATH ) {
@@ -5861,6 +5917,7 @@ async function init_gm_menu() {
                 "DOWNLOAD_ORIGINAL_IMAGE": "原寸画像を保存",
                 "UNDER_SUSPENSION": "停止中",
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "ダウンロードボタンを自動的に隠す(オーバーレイ時)",
+                "HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY": "ZIPダウンロードショートカット([z])を隠す(オーバーレイ時)",
                 "SUPPRESS_FILENAME_SUFFIX": "ファイル名の接尾辞(-orig等)抑制",
                 "SAME_FILENAME_AS_IN_ZIP": "個別ダウンロード時のファイル名をZIP中のものと揃える",
                 "HIDE_VIEW_COUNT_AND_SHARE_BUTTONS": "浏览量显示和分享按钮を隠す",
@@ -5910,6 +5967,7 @@ async function init_gm_menu() {
                 "DOWNLOAD_ORIGINAL_IMAGE": "Download original image",
                 "UNDER_SUSPENSION": "Under suspension",
                 "HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY": "Hide download button automatically (on Overlay mode)",
+                "HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY": "Hide ZIP download shortcut ([z]) in Overlay mode",
                 "SUPPRESS_FILENAME_SUFFIX": "Suppress suffix (e.g. -orig) of filename",
                 "SAME_FILENAME_AS_IN_ZIP": "Use same filename as in ZIP file when downloading alone",
                 "HIDE_VIEW_COUNT_AND_SHARE_BUTTONS": "Hide view count and share buttons",
@@ -6002,6 +6060,12 @@ async function init_gm_menu() {
                 label : messages.HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY,
                 type : 'checkbox',
                 default : OPTIONS.HIDE_DOWNLOAD_BUTTON_AUTOMATICALLY,
+            },
+
+            HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY : {
+                label : messages.HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY,
+                type : 'checkbox',
+                default : OPTIONS.HIDE_ZIP_DOWNLOAD_SHORTCUT_IN_OVERLAY,
             },
 
             SAME_FILENAME_AS_IN_ZIP : {
