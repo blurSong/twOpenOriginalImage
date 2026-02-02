@@ -4,12 +4,15 @@
 
 This fork adds the following features:
 
-- **Wallpaper Save Buttons**: Added "Save W" and "Save P" buttons on timeline tweets for quick wallpaper saving
+- **Wallpaper Save Buttons**: Added "W" and "P" buttons on timeline tweets for quick wallpaper saving
 - **Download Button**: New "Download" button to download all images directly (without ZIP)
 - **Keyboard Shortcuts**: Press <kbd>w</kbd> or <kbd>p</kbd> in overlay view to save as wallpaper
 - **Resolution Display**: Shows image dimensions in the overlay status bar
 - **Custom Save Paths**: Configure wallpaper and phone wallpaper save paths in settings
-- **Hide View Count and Share**: Add an option to disable them, as they are not always needed.
+- **Add Setting to Hide <kbd>z</kbd> in Overlay**: Since downloading all images as a zip is not always needed
+- **Add Setting to Hide View Count and Share of X**: Same as above
+
+When press `W` or `P` buttons or their corresponding keyborad shortcuts. The image are also download to the default folder of the browser.
 
 <br>
 <img src="image.png" width="400">
