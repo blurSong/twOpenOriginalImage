@@ -300,10 +300,10 @@ switch ( LANGUAGE ) {
         OPTIONS.HELP_OVERLAY_SHORTCUT_BGCOLOR_WHITE = 'white';
         OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_WALLPAPER = '[w]save-wallpaper';
         OPTIONS.HELP_OVERLAY_SHORTCUT_SAVE_PHONE_WALLPAPER = '[p]save-phone-wallpaper';
-        OPTIONS.BUTTON_SAVE_WALLPAPER_TEXT = 'Save W';
-        OPTIONS.BUTTON_SAVE_PHONE_WALLPAPER_TEXT = 'Save P';
-        OPTIONS.BUTTON_HELP_SAVE_WALLPAPER = 'Save as wallpaper';
-        OPTIONS.BUTTON_HELP_SAVE_PHONE_WALLPAPER = 'Save as phone wallpaper';
+        OPTIONS.BUTTON_SAVE_WALLPAPER_TEXT = 'W';
+        OPTIONS.BUTTON_SAVE_PHONE_WALLPAPER_TEXT = 'P';
+        OPTIONS.BUTTON_HELP_SAVE_WALLPAPER = 'Download and save as wallpaper';
+        OPTIONS.BUTTON_HELP_SAVE_PHONE_WALLPAPER = 'Download and save as phone wallpaper';
         OPTIONS.BUTTON_DOWNLOAD_TEXT = 'Download';
         OPTIONS.BUTTON_HELP_DOWNLOAD = 'Download all images';
         break;
